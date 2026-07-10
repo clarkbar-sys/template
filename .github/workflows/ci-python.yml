@@ -76,7 +76,7 @@ jobs:
       - run: pip install build
       - run: python -m build
       - name: Upload dist (downloadable from this run / PR)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-dist
           path: dist/
@@ -101,7 +101,7 @@ jobs:
       - run: pytest --cov --cov-report=term-missing --cov-report=xml
       - name: Upload coverage
         if: matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-python
           path: coverage.xml
