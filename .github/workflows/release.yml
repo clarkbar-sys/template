@@ -34,7 +34,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # TODO: build your program(s) for release into ./out. Examples:
       #   Python: pip install build && python -m build && cp dist/* out/
       #   C:      cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
