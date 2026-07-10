@@ -98,7 +98,9 @@ jobs:
           cache: pip
       # TODO: adjust to your install (e.g. `pip install -e '.[dev]'`)
       - run: pip install -e . pytest pytest-cov
-      - run: pytest --cov --cov-report=term-missing --cov-report=xml
+      # Coverage floor is enforced here (also set in pyproject's
+      # [tool.coverage.report] fail_under). Drops the build if it slips below 80%.
+      - run: pytest --cov --cov-report=term-missing --cov-report=xml --cov-fail-under=80
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
@@ -117,8 +119,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install bandit pip-audit
-      # Drop the `|| true` once the baseline is clean so these actually gate.
+      # These gate. Scope bandit to source (tests are exempted via pyproject's
+      # ruff S-rule per-file-ignores; bandit itself only scans `src` here).
       - name: Bandit (SAST)
-        run: bandit -r . -q || true
+        run: bandit -r src -q
       - name: pip-audit (dependency vulns)
-        run: pip-audit || true
+        run: pip-audit

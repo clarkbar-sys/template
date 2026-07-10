@@ -1,8 +1,9 @@
-name: CI (C)
+name: CI (C/C++)
 
-# Runs only when C sources / build files change (path filter below).
+# Runs only when C/C++ sources / build files change (path filter below).
 # Stage order: static (parallel) -> build (gcc + clang matrix)
-#   -> test (ASan/UBSan matrix) / security (CodeQL).
+#   -> test (ASan/UBSan matrix) + coverage / security (CodeQL).
+# Standard: C sources -> -std=c11, C++ sources -> -std=c++20 (see STANDARDS.md).
 # Replace the `make` placeholders with your real build system (cmake/meson/make).
 
 on:
@@ -11,17 +12,31 @@ on:
     paths:
       - "**/*.c"
       - "**/*.h"
+      - "**/*.cpp"
+      - "**/*.cc"
+      - "**/*.cxx"
+      - "**/*.hpp"
+      - "**/*.hh"
       - "CMakeLists.txt"
       - "Makefile"
       - "meson.build"
+      - ".clang-format"
+      - ".clang-tidy"
       - ".github/workflows/ci-c.yml"
   pull_request:
     paths:
       - "**/*.c"
       - "**/*.h"
+      - "**/*.cpp"
+      - "**/*.cc"
+      - "**/*.cxx"
+      - "**/*.hpp"
+      - "**/*.hh"
       - "CMakeLists.txt"
       - "Makefile"
       - "meson.build"
+      - ".clang-format"
+      - ".clang-tidy"
       - ".github/workflows/ci-c.yml"
   workflow_dispatch:
 
@@ -43,10 +58,10 @@ jobs:
       - uses: actions/checkout@v4
       - id: f
         run: |
-          if [ -n "$(git ls-files '*.c' '*.h')" ]; then
+          if [ -n "$(git ls-files '*.c' '*.h' '*.cpp' '*.cc' '*.cxx' '*.hpp' '*.hh')" ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           else
-            echo "found=false — skipping C CI" && echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "found=false — skipping C/C++ CI" && echo "found=false" >> "$GITHUB_OUTPUT"
           fi
 
   static:
@@ -59,12 +74,15 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y clang-format cppcheck
       - name: Format check
         run: |
-          files=$(git ls-files '*.c' '*.h')
+          files=$(git ls-files '*.c' '*.h' '*.cpp' '*.cc' '*.cxx' '*.hpp' '*.hh')
           [ -z "$files" ] || clang-format --dry-run --Werror $files
       - name: cppcheck
-        run: cppcheck --enable=warning,style --error-exitcode=1 .
-      # clang-tidy needs a compile_commands.json — enable once you have cmake:
-      # - run: clang-tidy $(git ls-files '*.c') -- -I.
+        run: cppcheck --enable=warning,style --error-exitcode=1 --std=c11 --std=c++20 .
+      # clang-tidy uses .clang-tidy but needs a compile_commands.json to know how
+      # each file is compiled. Enable once you have a cmake build that emits one
+      # (cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON), then uncomment:
+      # - run: sudo apt-get install -y clang-tidy
+      # - run: clang-tidy -p build $(git ls-files '*.c' '*.cpp' '*.cc')
 
   build:
     name: Build (${{ matrix.cc }})
@@ -77,6 +95,10 @@ jobs:
         cc: [gcc, clang]
     env:
       CC: ${{ matrix.cc }}
+      # House standard: C11 / C++20, warnings are errors. A conventional
+      # Makefile/cmake picks these up; adjust the var names to your build.
+      CFLAGS: -std=c11 -Wall -Wextra -Werror -pedantic
+      CXXFLAGS: -std=c++20 -Wall -Wextra -Werror -pedantic
     steps:
       - uses: actions/checkout@v4
       # TODO: replace with your build system, e.g.
@@ -94,9 +116,13 @@ jobs:
       matrix:
         sanitizer: [address, undefined]
     env:
-      CFLAGS: -fsanitize=${{ matrix.sanitizer }} -g -fno-omit-frame-pointer
-      CXXFLAGS: -fsanitize=${{ matrix.sanitizer }} -g -fno-omit-frame-pointer
+      # Sanitizer flags carry the house standard too. ASAN_OPTIONS/UBSAN_OPTIONS
+      # make the run abort on the first finding instead of merely logging it.
+      CFLAGS: -std=c11 -fsanitize=${{ matrix.sanitizer }} -g -fno-omit-frame-pointer
+      CXXFLAGS: -std=c++20 -fsanitize=${{ matrix.sanitizer }} -g -fno-omit-frame-pointer
       LDFLAGS: -fsanitize=${{ matrix.sanitizer }}
+      ASAN_OPTIONS: abort_on_error=1:detect_leaks=1:strict_string_checks=1
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
     steps:
       - uses: actions/checkout@v4
       # TODO: build + run tests under the sanitizer, e.g.
@@ -104,7 +130,32 @@ jobs:
       #     && ctest --test-dir build --output-on-failure
       - name: Test
         run: make test
-      # Coverage: build with `--coverage` (gcov) and upload lcov/gcov output.
+
+  coverage:
+    name: Coverage (>= 80%)
+    needs: [detect, build]
+    if: needs.detect.outputs.found == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y gcovr
+      # TODO: build with coverage instrumentation and run the test suite, e.g.
+      #   make clean && make test CFLAGS="--coverage -O0 -g" LDFLAGS="--coverage"
+      - name: Build + test with coverage
+        run: make test CFLAGS="--coverage -O0 -g" LDFLAGS="--coverage"
+      # Enforces the 80% line-coverage floor; fails the job below it.
+      - name: Enforce coverage floor
+        run: gcovr --fail-under-line 80 --exclude tests --print-summary
+      - name: Coverage report (XML)
+        if: always()
+        run: gcovr --xml -o coverage.xml --exclude tests || true
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-c
+          path: coverage.xml
+          if-no-files-found: ignore
 
   security:
     name: Security (CodeQL)
