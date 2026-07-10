@@ -1,0 +1,33 @@
+name: CI
+
+# Placeholder CI so the badge is green from commit #1.
+# Replace the "checks" job body with your stack's real lint / test / build.
+# Examples:
+#   Node:   actions/setup-node  → npm ci → npm run lint && npm test && npm run build
+#   Python: actions/setup-python → pip install -e '.[dev]' → ruff check . && pytest
+#   Go:     actions/setup-go     → golangci-lint run → go test ./... → go build ./...
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Placeholder
+        run: |
+          echo "✅ CI is wired up."
+          echo "TODO: replace this step with real lint/test/build for your stack."
