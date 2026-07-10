@@ -11,7 +11,7 @@
 > {{ONE_LINE_DESCRIPTION}}
 
 <!-- Keep the badge(s) for the language(s) this repo uses; delete the rest. -->
-[![CI (C)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-c.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-c.yml)
+[![CI (C/C++)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-c.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-c.yml)
 [![CI (Scheme)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-scheme.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-scheme.yml)
 [![CI (Python)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-python.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-python.yml)
 [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](./LICENSE)
@@ -51,7 +51,8 @@ tag the release; `release.yml` then builds and attaches the program artifacts.
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). Please also read our
+See [CONTRIBUTING.md](./CONTRIBUTING.md) and the
+[Coding Standards](./STANDARDS.md). Please also read our
 [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Security
@@ -73,6 +74,9 @@ After creating a repo from this template:
 - [ ] Replace `{{PROJECT_NAME}}`, `{{ONE_LINE_DESCRIPTION}}`, `{{REPO_NAME}}` above
 - [ ] Keep the CI workflow(s) for your language (`ci-c` / `ci-scheme` / `ci-python`); delete the rest, and delete the badges to match
 - [ ] Fill in the `TODO:` build/test commands in the workflow you kept
+- [ ] Review [STANDARDS.md](./STANDARDS.md); for Python fill in the
+      `{{PLACEHOLDERS}}` in `pyproject.toml`. Configs (`.clang-format`,
+      `.clang-tidy`, `pyproject.toml`) enforce an 80% coverage floor by default
 - [ ] Update `.github/CODEOWNERS` with the real owning team
 - [ ] Uncomment your language's section in `.gitignore` and `dependabot.yml`
 - [ ] Enable branch protection on `main` (require CI + 1 review); add the kept
