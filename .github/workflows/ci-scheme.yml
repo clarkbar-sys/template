@@ -31,8 +31,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Preflight: only run the pipeline if this repo actually has Scheme sources.
+  # Keeps CI green on the empty template (and any repo not yet using Scheme).
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.f.outputs.found }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: f
+        run: |
+          if [ -n "$(git ls-files '*.rkt' '*.scm' '*.ss' '*.sls')" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false — skipping Scheme CI" && echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Byte-compile
+    needs: detect
+    if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,14 +59,17 @@ jobs:
           version: stable
       # Byte-compiling is the main "does it even load" gate for Scheme.
       - name: Compile
-        run: raco make $(git ls-files '*.rkt')
+        run: |
+          files=$(git ls-files '*.rkt')
+          [ -z "$files" ] || raco make $files
       # Guile alternative:
       #   sudo apt-get install -y guile-3.0
       #   for f in $(git ls-files '*.scm'); do guild compile -Wunbound-variable "$f"; done
 
   test:
     name: Test & coverage
-    needs: build
+    needs: [detect, build]
+    if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

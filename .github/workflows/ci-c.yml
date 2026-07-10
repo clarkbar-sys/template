@@ -33,8 +33,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Preflight: only run the pipeline if this repo actually has C sources.
+  # Keeps CI green on the empty template (and any repo not yet using C).
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.f.outputs.found }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: f
+        run: |
+          if [ -n "$(git ls-files '*.c' '*.h')" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false — skipping C CI" && echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
   static:
     name: Static checks
+    needs: detect
+    if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +68,8 @@ jobs:
 
   build:
     name: Build (${{ matrix.cc }})
-    needs: static
+    needs: [detect, static]
+    if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -67,7 +86,8 @@ jobs:
 
   test:
     name: Test (${{ matrix.sanitizer }})
-    needs: build
+    needs: [detect, build]
+    if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -88,7 +108,8 @@ jobs:
 
   security:
     name: Security (CodeQL)
-    needs: build
+    needs: [detect, build]
+    if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
