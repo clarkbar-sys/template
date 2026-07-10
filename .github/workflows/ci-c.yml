@@ -40,7 +40,7 @@ jobs:
     outputs:
       found: ${{ steps.f.outputs.found }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: f
         run: |
           if [ -n "$(git ls-files '*.c' '*.h')" ]; then
@@ -55,7 +55,7 @@ jobs:
     if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y clang-format cppcheck
       - name: Format check
         run: |
@@ -78,7 +78,7 @@ jobs:
     env:
       CC: ${{ matrix.cc }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # TODO: replace with your build system, e.g.
       #   cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
       - name: Build
@@ -98,7 +98,7 @@ jobs:
       CXXFLAGS: -fsanitize=${{ matrix.sanitizer }} -g -fno-omit-frame-pointer
       LDFLAGS: -fsanitize=${{ matrix.sanitizer }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # TODO: build + run tests under the sanitizer, e.g.
       #   cmake -B build -DCMAKE_C_FLAGS="$CFLAGS" && cmake --build build \
       #     && ctest --test-dir build --output-on-failure
@@ -116,7 +116,7 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v3
         with:
           languages: c-cpp
