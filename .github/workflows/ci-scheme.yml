@@ -1,25 +1,23 @@
 name: CI (Scheme)
 
-# Runs only when Scheme sources change (path filter below).
-# Scheme has thin lint/format tooling, so the quality gate here is mostly:
-#   "does it byte-compile cleanly + do the tests pass".
-# Written for Racket (raco) by default — see the commented Guile/Chez notes.
+# Scheme here means **s7** (CCRMA/Stanford) — no Guile, no Racket, no Chez.
+# s7 is fetched + checksum-verified at build time (scripts/fetch-s7.sh), so the
+# quality gate is: "does the interpreter compile cleanly (gcc + clang) and do
+# the tests pass". Your own Scheme lives in e.g. src/, examples/, tests/.
 
 on:
   push:
     branches: [main]
     paths:
       - "**/*.scm"
-      - "**/*.ss"
-      - "**/*.sls"
-      - "**/*.rkt"
+      - "scripts/fetch-s7.sh"
+      - "Makefile"
       - ".github/workflows/ci-scheme.yml"
   pull_request:
     paths:
       - "**/*.scm"
-      - "**/*.ss"
-      - "**/*.sls"
-      - "**/*.rkt"
+      - "scripts/fetch-s7.sh"
+      - "Makefile"
       - ".github/workflows/ci-scheme.yml"
   workflow_dispatch:
 
@@ -31,8 +29,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Preflight: only run the pipeline if this repo actually has Scheme sources.
-  # Keeps CI green on the empty template (and any repo not yet using Scheme).
+  # Preflight: only run if this repo has Scheme sources.
+  # Keeps CI green on the bare template until you add code of your own.
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -41,42 +39,41 @@ jobs:
       - uses: actions/checkout@v7
       - id: f
         run: |
-          if [ -n "$(git ls-files '*.rkt' '*.scm' '*.ss' '*.sls')" ]; then
+          if [ -n "$(git ls-files '*.scm' '*.ss' '*.sls')" ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           else
-            echo "found=false — skipping Scheme CI" && echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "found=false — no Scheme sources, skipping" && echo "found=false" >> "$GITHUB_OUTPUT"
           fi
 
   build:
-    name: Byte-compile
+    name: Build s7 (${{ matrix.cc }})
     needs: detect
     if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    env:
+      CC: ${{ matrix.cc }}
     steps:
       - uses: actions/checkout@v7
-      - uses: Bogdanp/setup-racket@v1.11
-        with:
-          version: stable
-      # Byte-compiling is the main "does it even load" gate for Scheme.
-      - name: Compile
+      # Compiling the fetched interpreter is the "does it even build" gate.
+      - name: Build
+        run: make build
+      - name: Sanity check
         run: |
-          files=$(git ls-files '*.rkt')
-          [ -z "$files" ] || raco make $files
-      # Guile alternative:
-      #   sudo apt-get install -y guile-3.0
-      #   for f in $(git ls-files '*.scm'); do guild compile -Wunbound-variable "$f"; done
+          echo '(display (+ 1 2 3)) (newline)' > sanity.scm
+          out=$(./bin/s7 sanity.scm 2>/dev/null)
+          [ "$out" = "6" ] || { echo "expected 6, got: '$out'"; exit 1; }
 
   test:
-    name: Test & coverage
+    name: Test
     needs: [detect, build]
     if: needs.detect.outputs.found == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: Bogdanp/setup-racket@v1.11
-        with:
-          version: stable
+      # `make test` builds s7, then runs every tests/*.scm; each must exit 0.
       - name: Test
-        run: raco test .
-      # Coverage (Racket): `raco pkg install cover && raco cover -f coveralls .`
-      # Guile tests: SRFI-64 harness, e.g. `guile -L . tests/run-tests.scm`
+        run: make test
