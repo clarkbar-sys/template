@@ -1,0 +1,105 @@
+name: CI (C)
+
+# Runs only when C sources / build files change (path filter below).
+# Stage order: static (parallel) -> build (gcc + clang matrix)
+#   -> test (ASan/UBSan matrix) / security (CodeQL).
+# Replace the `make` placeholders with your real build system (cmake/meson/make).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.c"
+      - "**/*.h"
+      - "CMakeLists.txt"
+      - "Makefile"
+      - "meson.build"
+      - ".github/workflows/ci-c.yml"
+  pull_request:
+    paths:
+      - "**/*.c"
+      - "**/*.h"
+      - "CMakeLists.txt"
+      - "Makefile"
+      - "meson.build"
+      - ".github/workflows/ci-c.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-c-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang-format cppcheck
+      - name: Format check
+        run: |
+          files=$(git ls-files '*.c' '*.h')
+          [ -z "$files" ] || clang-format --dry-run --Werror $files
+      - name: cppcheck
+        run: cppcheck --enable=warning,style --error-exitcode=1 .
+      # clang-tidy needs a compile_commands.json — enable once you have cmake:
+      # - run: clang-tidy $(git ls-files '*.c') -- -I.
+
+  build:
+    name: Build (${{ matrix.cc }})
+    needs: static
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: replace with your build system, e.g.
+      #   cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
+      - name: Build
+        run: make
+
+  test:
+    name: Test (${{ matrix.sanitizer }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined]
+    env:
+      CFLAGS: -fsanitize=${{ matrix.sanitizer }} -g -fno-omit-frame-pointer
+      CXXFLAGS: -fsanitize=${{ matrix.sanitizer }} -g -fno-omit-frame-pointer
+      LDFLAGS: -fsanitize=${{ matrix.sanitizer }}
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: build + run tests under the sanitizer, e.g.
+      #   cmake -B build -DCMAKE_C_FLAGS="$CFLAGS" && cmake --build build \
+      #     && ctest --test-dir build --output-on-failure
+      - name: Test
+        run: make test
+      # Coverage: build with `--coverage` (gcov) and upload lcov/gcov output.
+
+  security:
+    name: Security (CodeQL)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+      # TODO: your real build so CodeQL can trace compilation
+      - name: Build for analysis
+        run: make
+      - uses: github/codeql-action/analyze@v3

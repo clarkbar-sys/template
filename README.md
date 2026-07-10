@@ -10,7 +10,10 @@
 
 > {{ONE_LINE_DESCRIPTION}}
 
-[![CI](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci.yml)
+<!-- Keep the badge(s) for the language(s) this repo uses; delete the rest. -->
+[![CI (C)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-c.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-c.yml)
+[![CI (Scheme)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-scheme.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-scheme.yml)
+[![CI (Python)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-python.yml/badge.svg)](https://github.com/clarkbar-sys/{{REPO_NAME}}/actions/workflows/ci-python.yml)
 [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](./LICENSE)
 
 ## Overview
@@ -37,6 +40,15 @@ cd {{REPO_NAME}}
 # TODO: lint / test / build commands
 ```
 
+## Releases
+
+Releases are automated with
+[release-please](https://github.com/googleapis/release-please). Commit using
+[Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`,
+`chore:` …) and a **Release PR** is opened and kept up to date automatically —
+it bumps the version and updates [CHANGELOG.md](./CHANGELOG.md). Merge that PR to
+tag the release; `release.yml` then builds and attaches the program artifacts.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). Please also read our
@@ -59,11 +71,16 @@ Distributed under the terms of the [GNU GPL v2](./LICENSE).
 After creating a repo from this template:
 
 - [ ] Replace `{{PROJECT_NAME}}`, `{{ONE_LINE_DESCRIPTION}}`, `{{REPO_NAME}}` above
-- [ ] Add your stack's `ci.yml` (see `.github/workflows/`) and delete the placeholder
+- [ ] Keep the CI workflow(s) for your language (`ci-c` / `ci-scheme` / `ci-python`); delete the rest, and delete the badges to match
+- [ ] Fill in the `TODO:` build/test commands in the workflow you kept
 - [ ] Update `.github/CODEOWNERS` with the real owning team
-- [ ] Update `.gitignore` for your language
-- [ ] Enable branch protection on `main` (require CI + 1 review)
+- [ ] Uncomment your language's section in `.gitignore` and `dependabot.yml`
+- [ ] Enable branch protection on `main` (require CI + 1 review); add the kept
+      workflow's job as a required status check
 - [ ] Confirm `SECURITY.md` contact is correct
+- [ ] Releases: commit with [Conventional Commits](https://www.conventionalcommits.org/)
+      so release-please can version + changelog automatically; wire the build step
+      in `.github/workflows/release.yml`
 - [ ] Delete the "Getting started" TODOs once real commands exist
 
 </details>

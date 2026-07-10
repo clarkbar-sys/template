@@ -1,0 +1,61 @@
+name: CI (Scheme)
+
+# Runs only when Scheme sources change (path filter below).
+# Scheme has thin lint/format tooling, so the quality gate here is mostly:
+#   "does it byte-compile cleanly + do the tests pass".
+# Written for Racket (raco) by default — see the commented Guile/Chez notes.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.scm"
+      - "**/*.ss"
+      - "**/*.sls"
+      - "**/*.rkt"
+      - ".github/workflows/ci-scheme.yml"
+  pull_request:
+    paths:
+      - "**/*.scm"
+      - "**/*.ss"
+      - "**/*.sls"
+      - "**/*.rkt"
+      - ".github/workflows/ci-scheme.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-scheme-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Byte-compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Bogdanp/setup-racket@v1.11
+        with:
+          version: stable
+      # Byte-compiling is the main "does it even load" gate for Scheme.
+      - name: Compile
+        run: raco make $(git ls-files '*.rkt')
+      # Guile alternative:
+      #   sudo apt-get install -y guile-3.0
+      #   for f in $(git ls-files '*.scm'); do guild compile -Wunbound-variable "$f"; done
+
+  test:
+    name: Test & coverage
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Bogdanp/setup-racket@v1.11
+        with:
+          version: stable
+      - name: Test
+        run: raco test .
+      # Coverage (Racket): `raco pkg install cover && raco cover -f coveralls .`
+      # Guile tests: SRFI-64 harness, e.g. `guile -L . tests/run-tests.scm`
